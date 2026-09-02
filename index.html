@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DCA Pro Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#102f4d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DCA Pro">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<script src="libs/chart.umd.min.js"></script>
+<script src="libs/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#142033;--muted:#697689;--line:#e5eaf1;--blue:#1769aa;--green:#168267;--orange:#d9822b;--red:#c74b43;--nav:#0f2942;--shadow:0 10px 30px rgba(20,40,70,.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+.wrap{max-width:1500px;margin:auto;padding:16px}.hero{background:linear-gradient(135deg,#102f4d,#1874b5);color:#fff;border-radius:20px;padding:22px 24px;box-shadow:var(--shadow)}.hero h1{margin:0;font-size:27px}.hero p{margin:5px 0 0;opacity:.88}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:750;cursor:pointer;background:#fff;color:var(--blue);box-shadow:0 3px 10px #0001}.btn.primary{background:var(--blue);color:#fff}.btn.green{background:var(--green);color:#fff}.btn.red{color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.settings{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{border:1px solid #d5dce6;border-radius:8px;padding:9px;width:130px;background:#fff;font:inherit}.field select{width:150px}.cell.num{min-width:125px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:12px 0}.kpi .small{font-size:12px;color:var(--muted)}.kpi .big{font-size:23px;font-weight:850;margin-top:4px}.kpi.green .big{color:var(--green)}.kpi.blue .big{color:var(--blue)}
+.grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:12px}.chart{height:330px}.chart.tall{height:380px}
+table{border-collapse:collapse;width:100%;min-width:1000px}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:right;font-size:13px}th{background:#eef4fa;color:#27415c;position:sticky;top:0;z-index:2}th:first-child,td:first-child{text-align:left}input.cell{border:1px solid #d6dde7;border-radius:7px;padding:7px;width:100%;font:inherit}.name{min-width:190px}.num{min-width:110px}.rate{min-width:85px}.tablebox{overflow:auto;border:1px solid var(--line);border-radius:12px}
+.scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.scenario{border:1px solid var(--line);border-radius:13px;padding:13px}.scenario h3{margin:0 0 8px}.scenario .v{font-size:22px;font-weight:850}.good{border-top:4px solid var(--green)}.normal{border-top:4px solid var(--blue)}.bad{border-top:4px solid var(--red)}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.section-title h2{font-size:18px;margin:0}.hint{font-size:12px;color:var(--muted)}
+.monthly{margin-top:12px}.footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
+@media(max-width:1150px){.kpis{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:700px){.wrap{padding:9px}.hero h1{font-size:22px}.kpis{grid-template-columns:repeat(2,1fr)}.scenarios{grid-template-columns:1fr}.kpi .big{font-size:19px}}
+@media print{.toolbar{display:none}.card,.hero{box-shadow:none}.wrap{max-width:none}.chart{height:270px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="hero"><h1>📈 DCA PRO — Fund Portfolio Dashboard</h1><p>วางแผน DCA รายเดือนแบบมืออาชีพ • ปรับพอร์ต • จำลอง 3 สถานการณ์ • Export ได้</p></div>
+
+<div class="toolbar">
+<button class="btn primary" onclick="addFund()">＋ เพิ่มกองทุน</button>
+<button class="btn green" onclick="save()">💾 บันทึกพอร์ต</button>
+<button class="btn" onclick="load()">↻ โหลดพอร์ต</button>
+<button class="btn" onclick="exportXlsx()">⬇ Excel</button>
+<button class="btn" onclick="exportCsv()">⬇ CSV</button>
+<button class="btn" onclick="exportJson()">⬇ JSON</button>
+<button class="btn" onclick="window.print()">🖨 พิมพ์ / PDF</button>
+<button class="btn red" onclick="reset()">รีเซ็ต</button>
+</div>
+
+<div class="card settings">
+ <div class="field"><label>ระยะเวลาลงทุน (ปี)</label><input id="years" type="number" min="1" step="1" value="7" oninput="render()"></div>
+ <div class="field"><label>ผลตอบแทนกรณีดี (%)</label><input id="goodRate" type="number" step=".1" value="10" oninput="render()"></div>
+ <div class="field"><label>ผลตอบแทนกรณีกลาง (%)</label><input id="normalRate" type="number" step=".1" value="6" oninput="render()"></div>
+ <div class="field"><label>ผลตอบแทนกรณีแย่ (%)</label><input id="badRate" type="number" step=".1" value="2" oninput="render()"></div>
+ <div class="field"><label>รูปแบบการคำนวณ</label><select id="calcMode" onchange="render()"><option value="individual">ใช้ % รายกองทุน</option><option value="scenario">ใช้ % Scenario เดียวทั้งพอร์ต</option></select></div>
+</div>
+
+<div class="kpis">
+ <div class="card kpi blue"><div class="small">เงินลงทุนต่อเดือน</div><div class="big" id="kMonthly">-</div></div>
+ <div class="card kpi"><div class="small">เงินต้นทั้งหมด</div><div class="big" id="kPrincipal">-</div></div>
+ <div class="card kpi blue"><div class="small">มูลค่าคาดการณ์</div><div class="big" id="kFuture">-</div></div>
+ <div class="card kpi green"><div class="small">กำไรคาดการณ์</div><div class="big" id="kProfit">-</div></div>
+ <div class="card kpi"><div class="small">ผลตอบแทนต่อเงินต้น</div><div class="big" id="kMargin">-</div></div>
+</div>
+
+<div class="card">
+<div class="section-title"><h2>🧾 รายละเอียดกองทุน</h2><span class="hint">ชื่อ, เงินลงทุน/เดือน และ % แก้ไขได้อิสระ • พิมพ์ตัวเลขเองได้เลย หรือเลือกจากลิสต์แนะนำ</span></div>
+<datalist id="amtPresets"><option value="500"><option value="1000"><option value="1500"><option value="2000"><option value="2500"><option value="3000"><option value="4000"><option value="5000"><option value="7500"><option value="10000"></datalist>
+<div class="tablebox"><table id="tbl"><thead><tr>
+<th>กองทุน</th><th>ลงทุน/เดือน</th><th>%/ปี</th><th>เงินต้น</th><th>มูลค่าคาดการณ์</th><th>กำไร</th><th>%กำไร</th><th>ลบ</th>
+</tr></thead><tbody></tbody><tfoot><tr><th>รวม</th><th id="tm">-</th><th>-</th><th id="tp">-</th><th id="tf">-</th><th id="tpr">-</th><th id="tmg">-</th><th></th></tr></tfoot></table></div>
+<div class="hint" style="margin-top:8px">สูตรมูลค่าอนาคตใช้การ DCA รายเดือนแบบปลายงวด: FV = PMT × (((1+r)^n−1)/r)</div>
+</div>
+
+<div class="grid2" style="margin-top:12px">
+<section class="card"><div class="section-title"><h2>📊 เงินต้น vs มูลค่าพอร์ต</h2></div><div class="chart"><canvas id="bar"></canvas></div></section>
+<section class="card"><div class="section-title"><h2>🥧 สัดส่วนเงินลงทุน</h2></div><div class="chart"><canvas id="pie"></canvas></div></section>
+</div>
+
+<section class="card" style="margin-top:12px"><div class="section-title"><h2>📈 การเติบโตของพอร์ต</h2><span class="hint">รายปี</span></div><div class="chart tall"><canvas id="growth"></canvas></div></section>
+
+<section class="card" style="margin-top:12px">
+<div class="section-title"><h2>🎯 เปรียบเทียบ 3 สถานการณ์</h2><span class="hint">สมมติฐานแก้ไขได้ด้านบน</span></div>
+<div class="scenarios">
+ <div class="scenario good"><h3>🟢 ดี</h3><div class="v" id="sg">-</div><div class="hint" id="sgp">-</div></div>
+ <div class="scenario normal"><h3>🔵 กลาง</h3><div class="v" id="sn">-</div><div class="hint" id="snp">-</div></div>
+ <div class="scenario bad"><h3>🔴 แย่</h3><div class="v" id="sb">-</div><div class="hint" id="sbp">-</div></div>
+</div>
+</section>
+
+<section class="card monthly"><div class="section-title"><h2>🗓️ ตาราง DCA รายปี</h2><span class="hint">เงินต้นสะสม / มูลค่าคาดการณ์</span></div>
+<div class="tablebox"><table id="annual"><thead><tr><th>ปี</th><th>เงินลงทุนสะสม</th><th>มูลค่าพอร์ต</th><th>กำไร</th><th>กำไร %</th></tr></thead><tbody></tbody></table></div></section>
+
+<section class="card monthly">
+<div class="section-title"><h2>📒 บันทึกการลงทุนจริง</h2><span class="hint">บันทึกยอดที่โอนเงินลงทุนจริงแต่ละเดือน แยกตามกองทุน • บันทึกอัตโนมัติ</span></div>
+<div class="settings" style="margin-bottom:12px">
+ <div class="field"><label>กองทุน</label><select id="actFund"></select></div>
+ <div class="field"><label>เดือน/ปี</label><input id="actMonth" type="month"></div>
+ <div class="field"><label>เงินที่ลงทุนจริง (บาท)</label><input id="actAmount" type="number" min="0" step="100"></div>
+ <div class="field"><button class="btn primary" onclick="addActual()">＋ บันทึก</button></div>
+ <div class="field"><button class="btn" onclick="exportActualCsv()">⬇ CSV ลงทุนจริง</button></div>
+</div>
+<div class="tablebox"><table id="actualSummary"><thead><tr><th>กองทุน</th><th>ลงทุนจริงสะสม</th><th>เดือนที่บันทึก</th><th>เฉลี่ย/เดือน</th><th>แผน (เดือนที่บันทึก)</th><th>ต่างจากแผน</th></tr></thead><tbody></tbody></table></div>
+<div class="hint" id="actualDetailTitle" style="margin:12px 0 6px"></div>
+<div class="tablebox" id="actualDetailBox" style="display:none"><table id="actualDetail"><thead><tr><th>เดือน</th><th>จำนวนเงิน</th><th>ลบ</th></tr></thead><tbody></tbody></table></div>
+<div class="hint" style="margin-top:8px">คลิกที่แถวกองทุนในตารางด้านบนเพื่อดูรายละเอียดรายเดือน • ข้อมูลนี้จะถูกบันทึกไปพร้อมกับ "💾 บันทึกพอร์ต" ด้วย</div>
+</section>
+
+<div class="footer">DCA PRO Dashboard • ข้อมูลที่บันทึกจะอยู่ใน Local Storage ของอุปกรณ์/เบราว์เซอร์นี้</div>
+</div>
+
+<script>
+const defaults=[
+["TLUS500RMF",2000,8],["SCBRMWORLDA",2000,8],["TLWORLDXUSRMF",2000,8],
+["SCBRM2",2000,2.5],["TLSGOVRMF",2000,2.5],["KKP-CorePath Balanced RMF",2000,4],
+["SCBTM (Thai ESG)",2000,4],["SCBGOLDHRMF",2000,3]
+];
+let funds=defaults.map(x=>({name:x[0],monthly:x[1],rate:x[2],actual:{}}));let charts={};let activeActualFund=null;
+const money=n=>new Intl.NumberFormat('th-TH',{maximumFractionDigits:0}).format(n)+" บาท";
+const percent=n=>Number(n).toFixed(2)+"%";
+function fv(p,annual,n){let r=annual/100/12;if(!r)return p*n;return p*((Math.pow(1+r,n)-1)/r)}
+function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
+function scenarioFV(rate,months){let total=0;funds.forEach(f=>total+=fv(f.monthly,rate,months));return total}
+function calcFund(f,months){let mode=document.getElementById('calcMode').value;let rate=f.rate;if(mode==='scenario')rate=Number(document.getElementById('normalRate').value)||0;let p=f.monthly*months,v=fv(f.monthly,rate,months);return {p,v,pr:v-p,margin:p?(v-p)/p*100:0}}
+function sync(i,k,v){funds[i][k]=k==='name'?v:(Number(v)||0);render()}
+function addFund(){funds.push({name:"กองทุนใหม่",monthly:500,rate:5,actual:{}});render()}
+function removeFund(i){if(funds.length<=1)return;funds.splice(i,1);activeActualFund=null;document.getElementById('actualDetailBox').style.display='none';document.getElementById('actualDetailTitle').textContent='';render()}
+function render(){
+ let years=Math.max(1,Number(document.getElementById('years').value)||1),months=Math.round(years*12),tm=0,tp=0,tf=0;
+ let body=document.querySelector('#tbl tbody');body.innerHTML='';
+ funds.forEach((f,i)=>{let c=calcFund(f,months);tm+=f.monthly;tp+=c.p;tf+=c.v;
+ let tr=document.createElement('tr');tr.innerHTML=`<td><input class="cell name" value="${esc(f.name)}" onchange="sync(${i},'name',this.value)"></td>
+ <td><input class="cell num" type="number" min="0" step="100" list="amtPresets" value="${f.monthly}" onchange="sync(${i},'monthly',this.value)"></td>
+ <td><input class="cell rate" type="number" step=".1" value="${f.rate}" onchange="sync(${i},'rate',this.value)"></td>
+ <td>${money(c.p)}</td><td>${money(c.v)}</td><td style="color:var(--green);font-weight:700">${money(c.pr)}</td><td>${percent(c.margin)}</td>
+ <td><button class="btn red" onclick="removeFund(${i})">×</button></td>`;body.appendChild(tr)});
+ let pr=tf-tp,margin=tp?pr/tp*100:0;
+ document.getElementById('kMonthly').textContent=money(tm);document.getElementById('kPrincipal').textContent=money(tp);document.getElementById('kFuture').textContent=money(tf);document.getElementById('kProfit').textContent=money(pr);document.getElementById('kMargin').textContent=percent(margin);
+ document.getElementById('tm').textContent=money(tm);document.getElementById('tp').textContent=money(tp);document.getElementById('tf').textContent=money(tf);document.getElementById('tpr').textContent=money(pr);document.getElementById('tmg').textContent=percent(margin);
+ draw(months,tm,tp,tf);annual(months,tm);populateActualFundSelect();renderActualSummary()
+}
+function destroy(k){if(charts[k])charts[k].destroy()}
+function draw(months,tm,tp,tf){
+ destroy('bar');destroy('pie');destroy('growth');
+ charts.bar=new Chart(document.getElementById('bar'),{type:'bar',data:{labels:['เงินต้น','กำไร','มูลค่ารวม'],datasets:[{label:'บาท',data:[tp,tf-tp,tf]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>Number(v).toLocaleString('th-TH')}}}}});
+ charts.pie=new Chart(document.getElementById('pie'),{type:'doughnut',data:{labels:funds.map(f=>f.name),datasets:[{data:funds.map(f=>f.monthly)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
+ let labels=[],p=[],v=[];for(let y=1;y<=Math.ceil(months/12);y++){let m=Math.min(y*12,months),pp=0,vv=0;funds.forEach(f=>{pp+=f.monthly*m;let rate=document.getElementById('calcMode').value==='scenario'?Number(document.getElementById('normalRate').value)||0:f.rate;vv+=fv(f.monthly,rate,m)});labels.push('ปี '+y);p.push(Math.round(pp));v.push(Math.round(vv))}
+ charts.growth=new Chart(document.getElementById('growth'),{type:'line',data:{labels,datasets:[{label:'เงินต้นสะสม',data:p,tension:.25},{label:'มูลค่าพอร์ต',data:v,tension:.25}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{y:{ticks:{callback:x=>Number(x).toLocaleString('th-TH')}}}}});
+ let gr=Number(document.getElementById('goodRate').value)||0,nr=Number(document.getElementById('normalRate').value)||0,br=Number(document.getElementById('badRate').value)||0;
+ let g=scenarioFV(gr,months),n=scenarioFV(nr,months),b=scenarioFV(br,months);
+ document.getElementById('sg').textContent=money(g);document.getElementById('sn').textContent=money(n);document.getElementById('sb').textContent=money(b);
+ document.getElementById('sgp').textContent='กำไร '+money(g-tp)+' • '+percent((g-tp)/tp*100);
+ document.getElementById('snp').textContent='กำไร '+money(n-tp)+' • '+percent((n-tp)/tp*100);
+ document.getElementById('sbp').textContent='กำไร '+money(b-tp)+' • '+percent((b-tp)/tp*100);
+}
+function persistLocal(){try{localStorage.setItem('dcaPro2026',JSON.stringify(data()))}catch(e){}}
+function populateActualFundSelect(){let sel=document.getElementById('actFund');let prev=sel.value;sel.innerHTML=funds.map((f,i)=>`<option value="${i}">${esc(f.name)}</option>`).join('');if(prev!==''&&Number(prev)<funds.length)sel.value=prev}
+function addActual(){if(!funds.length){alert('กรุณาเพิ่มกองทุนก่อน');return}let idx=Number(document.getElementById('actFund').value);let monthEl=document.getElementById('actMonth');let amtEl=document.getElementById('actAmount');let month=monthEl.value;let amt=Number(amtEl.value);if(!month){alert('กรุณาเลือกเดือน/ปี');return}if(amtEl.value===''||isNaN(amt)||amt<0){alert('กรุณากรอกจำนวนเงินให้ถูกต้อง');return}funds[idx].actual=funds[idx].actual||{};funds[idx].actual[month]=amt;amtEl.value='';renderActualSummary();activeActualFund=idx;showActualDetail(idx);persistLocal()}
+function renderActualSummary(){let tb=document.querySelector('#actualSummary tbody');tb.innerHTML='';funds.forEach((f,i)=>{f.actual=f.actual||{};let months=Object.keys(f.actual);let total=months.reduce((s,m)=>s+(Number(f.actual[m])||0),0);let count=months.length;let avg=count?total/count:0;let plan=f.monthly*count;let diff=total-plan;let tr=document.createElement('tr');tr.style.cursor='pointer';if(activeActualFund===i)tr.style.background='#eef4fa';tr.innerHTML=`<td>${esc(f.name)}</td><td>${money(total)}</td><td>${count} เดือน</td><td>${money(avg)}</td><td>${money(plan)}</td><td style="color:${diff>=0?'var(--green)':'var(--red)'};font-weight:700">${diff>=0?'+':''}${money(diff)}</td>`;tr.onclick=()=>showActualDetail(i);tb.appendChild(tr)})}
+function showActualDetail(i){let f=funds[i];if(!f)return;f.actual=f.actual||{};activeActualFund=i;document.getElementById('actualDetailBox').style.display='block';document.getElementById('actualDetailTitle').textContent='รายละเอียดการลงทุนจริง: '+f.name;let tb=document.querySelector('#actualDetail tbody');tb.innerHTML='';let months=Object.keys(f.actual).sort();if(!months.length){tb.innerHTML='<tr><td colspan="3" class="hint">ยังไม่มีข้อมูลการลงทุนจริงของกองทุนนี้</td></tr>';return}months.forEach(m=>{let tr=document.createElement('tr');tr.innerHTML=`<td>${m}</td><td>${money(f.actual[m])}</td><td><button class="btn red" onclick="deleteActual(${i},'${m}')">×</button></td>`;tb.appendChild(tr)})}
+function deleteActual(i,m){if(!funds[i]||!funds[i].actual)return;delete funds[i].actual[m];renderActualSummary();showActualDetail(i);persistLocal()}
+function exportActualCsv(){let rows=[['กองทุน','เดือน','จำนวนเงินที่ลงทุนจริง (บาท)']];funds.forEach(f=>{f.actual=f.actual||{};Object.keys(f.actual).sort().forEach(m=>rows.push([f.name,m,f.actual[m]]))});if(rows.length===1){alert('ยังไม่มีข้อมูลการลงทุนจริงให้ส่งออก');return}let csv='\ufeff'+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\\n');download(csv,'dca-actual-log.csv','text/csv;charset=utf-8')}
+function annual(months,tm){let tb=document.querySelector('#annual tbody');tb.innerHTML='';for(let y=1;y<=Math.ceil(months/12);y++){let m=Math.min(y*12,months),p=tm*m,v=0;funds.forEach(f=>{let r=document.getElementById('calcMode').value==='scenario'?Number(document.getElementById('normalRate').value)||0:f.rate;v+=fv(f.monthly,r,m)});let pr=v-p;let tr=document.createElement('tr');tr.innerHTML=`<td>${y}</td><td>${money(p)}</td><td>${money(v)}</td><td style="color:var(--green)">${money(pr)}</td><td>${percent(p?pr/p*100:0)}</td>`;tb.appendChild(tr)}}
+function data(){return{years:Number(document.getElementById('years').value),goodRate:Number(document.getElementById('goodRate').value),normalRate:Number(document.getElementById('normalRate').value),badRate:Number(document.getElementById('badRate').value),calcMode:document.getElementById('calcMode').value,funds}}
+function save(){localStorage.setItem('dcaPro2026',JSON.stringify(data()));alert('บันทึกพอร์ตเรียบร้อยแล้ว')}
+function load(){let s=localStorage.getItem('dcaPro2026');if(!s){alert('ยังไม่มีข้อมูลที่บันทึกไว้');return}try{let d=JSON.parse(s);funds=d.funds||funds;funds.forEach(f=>{if(!f.actual)f.actual={}});activeActualFund=null;document.getElementById('actualDetailBox').style.display='none';document.getElementById('actualDetailTitle').textContent='';['years','goodRate','normalRate','badRate'].forEach(k=>{if(d[k]!=null)document.getElementById(k).value=d[k]});if(d.calcMode)document.getElementById('calcMode').value=d.calcMode;render();alert('โหลดพอร์ตเรียบร้อยแล้ว')}catch(e){alert('ไม่สามารถโหลดข้อมูลได้')}}
+function reset(){if(!confirm('รีเซ็ตเป็นพอร์ตเริ่มต้นหรือไม่? (ข้อมูลการลงทุนจริงที่บันทึกไว้จะถูกล้างด้วย)'))return;funds=defaults.map(x=>({name:x[0],monthly:x[1],rate:x[2],actual:{}}));activeActualFund=null;document.getElementById('actualDetailBox').style.display='none';document.getElementById('actualDetailTitle').textContent='';document.getElementById('years').value=7;document.getElementById('goodRate').value=10;document.getElementById('normalRate').value=6;document.getElementById('badRate').value=2;document.getElementById('calcMode').value='individual';render()}
+function exportCsv(){let months=Number(document.getElementById('years').value)*12,rows=[['กองทุน','ลงทุน/เดือน','%/ปี','เดือน','เงินต้น','มูลค่าคาดการณ์','กำไร','%กำไร']];funds.forEach(f=>{let c=calcFund(f,months);rows.push([f.name,f.monthly,f.rate,months,c.p,Math.round(c.v),Math.round(c.pr),c.margin])});let csv='\ufeff'+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\\n');download(csv,'dca-pro.csv','text/csv;charset=utf-8')}
+function exportJson(){download(JSON.stringify(data(),null,2),'dca-pro.json','application/json')}
+function exportXlsx(){if(typeof XLSX==='undefined'){alert('Excel library โหลดไม่สำเร็จ กรุณาเปิดไฟล์ขณะเชื่อมต่ออินเทอร์เน็ต');return}let months=Number(document.getElementById('years').value)*12,rows=[['กองทุน','ลงทุน/เดือน (บาท)','%/ปี','จำนวนเดือน','เงินต้น','มูลค่าคาดการณ์','กำไร','%กำไร']];funds.forEach(f=>{let c=calcFund(f,months);rows.push([f.name,f.monthly,f.rate,months,c.p,c.v,c.pr,c.margin])});let ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:28},{wch:18},{wch:12},{wch:14},{wch:18},{wch:20},{wch:18},{wch:12}];let wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'DCA Dashboard');XLSX.writeFile(wb,'DCA-PRO-Dashboard.xlsx')}
+function download(text,name,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+render();
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
+</script>
+</body></html>
